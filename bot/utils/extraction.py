@@ -11,9 +11,6 @@ from telegram.ext import ContextTypes
 async def get_target_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[User]:
     message = update.effective_message
 
-    if message.reply_to_message and message.reply_to_message.from_user:
-        return message.reply_to_message.from_user
-
     if message.entities:
         for entity in message.entities:
             if entity.type == "text_mention" and entity.user:
@@ -32,7 +29,19 @@ async def get_target_user(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 member = await update.effective_chat.get_member(int(arg))
                 return member.user
             except Exception:
-                return None
+                try:
+                    chat = await context.bot.get_chat(int(arg))
+                    return User(
+                        id=chat.id,
+                        first_name=chat.first_name or str(chat.id),
+                        is_bot=False,
+                        username=chat.username,
+                    )
+                except Exception:
+                    return None
+
+    if message.reply_to_message and message.reply_to_message.from_user:
+        return message.reply_to_message.from_user
 
     return None
 

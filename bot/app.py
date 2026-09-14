@@ -1,4 +1,6 @@
+import html
 import logging
+import traceback
 
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes
@@ -13,13 +15,49 @@ logger = logging.getLogger(__name__)
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error("Exception while handling an update", exc_info=context.error)
+
+    tb_list = (
+        traceback.format_exception(None, context.error, context.error.__traceback__)
+        if context.error
+        else []
+    )
+    tb_string = "".join(tb_list)
+    if len(tb_string) > 3000:
+        tb_string = tb_string[-3000:]
+
+    escaped_tb = html.escape(tb_string)
+    err_name = html.escape(type(context.error).__name__ if context.error else "UnknownError")
+    err_msg = html.escape(str(context.error) if context.error else "")
+
+    error_text = (
+        f"⚠️ <b>An error occurred:</b> <code>{err_name}: {err_msg}</code>\n\n"
+        f"<b>Recent Error Log:</b>\n"
+        f"<pre>{escaped_tb}</pre>"
+    )
+
     if isinstance(update, Update) and update.effective_message:
         try:
-            await update.effective_message.reply_text(
-                "Ara ara, something went wrong on my end. The error has been logged~ 🛠️"
-            )
+            await update.effective_message.reply_html(error_text)
         except Exception:
-            pass
+            try:
+                clean_msg = (
+                    f"⚠️ An error occurred: {err_name}: {err_msg}\n\n"
+                    f"Recent Error Log:\n{tb_string[-1500:]}"
+                )
+                await update.effective_message.reply_text(clean_msg[:4000])
+            except Exception:
+                pass
+
+    try:
+        cfg = get_config()
+        if cfg.owner_id:
+            await context.bot.send_message(
+                chat_id=cfg.owner_id,
+                text=f"<b>[BOT ERROR ALERT]</b>\n{error_text}",
+                parse_mode="HTML",
+            )
+    except Exception:
+        pass
 
 
 async def _post_init(application: Application) -> None:
