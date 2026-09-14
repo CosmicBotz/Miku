@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
 
 from bot.database.crud import get_neko_mode, set_neko_mode
-from bot.modules.admin_tools import is_admin
+from bot.utils.permissions import is_admin_or_owner
 
 WAIFU_PICS_ACTIONS = [
     "waifu", "neko", "shinobu", "megumin", "bully", "cuddle", "cry", "hug",
@@ -64,7 +64,7 @@ async def nekomode_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
 
     if chat.type != "private":
-        if not await is_admin(update, user.id):
+        if not await is_admin_or_owner(update, context):
             await msg.reply_html("You must be an admin to toggle Neko Mode!")
             return
 
