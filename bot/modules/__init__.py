@@ -70,7 +70,7 @@ def load_all_modules(application: Application) -> list[str]:
     proxy = ApplicationProxy(application)
     loaded = []
     for _finder, module_name, is_pkg in pkgutil.iter_modules(__path__):
-        if is_pkg or module_name.startswith("_"):
+        if is_pkg or module_name.startswith("_") or module_name == "filters":
             continue
         full_name = f"{__name__}.{module_name}"
         module = importlib.import_module(full_name)
