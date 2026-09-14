@@ -1,3 +1,4 @@
+import math
 import random
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
@@ -13,6 +14,7 @@ def _get_start_pic() -> str | None:
     except Exception:
         pass
     return None
+
 
 START_TEXT_PM = (
     "Konnichiwa, {name}! I am your anime-themed group manager.\n\n"
@@ -118,39 +120,97 @@ CATEGORIES = {
         "» /feddemote &lt;user&gt; - Remove fed admin\n"
     ),
     "fun": (
-        "<b>:: ANIME & FUN ::</b>\n\n"
+        "<b>:: FUN & GAMES ::</b>\n\n"
         "» /roll [sides] - Roll a dice (default 6)\n"
         "» /8ball &lt;question&gt; - Magic 8-Ball answer\n"
-        "» /quote - Get an anime quote\n"
         "» /ship - Ship two users in the chat\n"
         "» /power - Measure user's anime power level\n"
     ),
+    "anime": (
+        "<b>:: ANIME & MANGA ::</b>\n\n"
+        "» /anime &lt;query&gt; - Search anime info & poster\n"
+        "» /manga &lt;query&gt; - Search manga details\n"
+        "» /character &lt;name&gt; - Search anime character bio\n"
+        "» /schedule - Today's anime release schedule\n"
+        "» /quote - Random anime quote\n"
+        "» /waifu - Random waifu picture\n"
+    ),
+    "tr": (
+        "<b>:: TRANSLATOR & SPEECH ::</b>\n\n"
+        "» /tr [lang_code] - Translate replied message\n"
+        "» /tts [lang_code] &lt;text&gt; - Text-to-speech audio generator\n"
+    ),
+    "neko": (
+        "<b>:: NEKO MODE ::</b>\n\n"
+        "» /nekomode on|off - Toggle cute anime speech filter in group\n"
+    ),
+    "kang": (
+        "<b>:: STICKER KANG ::</b>\n\n"
+        "» /kang / /pkang - Steal replied sticker into your sticker pack\n"
+    ),
+    "afk": (
+        "<b>:: AFK & WHISPERS ::</b>\n\n"
+        "» /afk [reason] - Set your away status\n"
+        "» /whisper @user secret - Send secret whisper message\n"
+    ),
+    "cosplay": (
+        "<b>:: COSPLAY & GALLERY ::</b>\n\n"
+        "» /cosplay - Get random anime cosplay picture\n"
+    ),
 }
 
+# 8 categories per page (4 rows of 2 buttons)
+ITEMS_PER_PAGE = 8
 
-def _get_help_grid():
-    buttons = [
-        [
-            InlineKeyboardButton("[ Basics ]", callback_data="hcat:basics"),
-            InlineKeyboardButton("[ Moderation ]", callback_data="hcat:moderation"),
-        ],
-        [
-            InlineKeyboardButton("[ Warnings ]", callback_data="hcat:warnings"),
-            InlineKeyboardButton("[ Anti-Spam ]", callback_data="hcat:antispam"),
-        ],
-        [
-            InlineKeyboardButton("[ Locks ]", callback_data="hcat:locks"),
-            InlineKeyboardButton("[ Notes ]", callback_data="hcat:notes"),
-        ],
-        [
-            InlineKeyboardButton("[ Filters ]", callback_data="hcat:filters"),
-            InlineKeyboardButton("[ Welcome ]", callback_data="hcat:welcome"),
-        ],
-        [
-            InlineKeyboardButton("[ Federations ]", callback_data="hcat:federations"),
-            InlineKeyboardButton("[ Fun ]", callback_data="hcat:fun"),
-        ],
-    ]
+CATEGORY_LABELS = [
+    ("basics", "Basics"),
+    ("moderation", "Moderation"),
+    ("warnings", "Warnings"),
+    ("antispam", "Anti-Spam"),
+    ("locks", "Locks"),
+    ("notes", "Notes"),
+    ("filters", "Filters"),
+    ("welcome", "Welcome"),
+    ("federations", "Federations"),
+    ("fun", "Fun"),
+    ("anime", "Anime"),
+    ("tr", "Translator"),
+    ("neko", "Neko Mode"),
+    ("kang", "Stickers"),
+    ("afk", "AFK & Whisper"),
+    ("cosplay", "Cosplay"),
+]
+
+
+def _get_help_grid(page: int = 0) -> InlineKeyboardMarkup:
+    total_pages = math.ceil(len(CATEGORY_LABELS) / ITEMS_PER_PAGE)
+    page = max(0, min(page, total_pages - 1))
+
+    start_idx = page * ITEMS_PER_PAGE
+    end_idx = start_idx + ITEMS_PER_PAGE
+    current_items = CATEGORY_LABELS[start_idx:end_idx]
+
+    buttons = []
+    # Build 2-column grid
+    for i in range(0, len(current_items), 2):
+        row = []
+        key1, label1 = current_items[i]
+        row.append(InlineKeyboardButton(f"[ {label1} ]", callback_data=f"hcat:{key1}"))
+        if i + 1 < len(current_items):
+            key2, label2 = current_items[i + 1]
+            row.append(InlineKeyboardButton(f"[ {label2} ]", callback_data=f"hcat:{key2}"))
+        buttons.append(row)
+
+    # Navigation bar
+    nav_row = []
+    prev_page = (page - 1) % total_pages
+    next_page = (page + 1) % total_pages
+
+    nav_row.append(InlineKeyboardButton("« Prev", callback_data=f"hpage:{prev_page}"))
+    nav_row.append(InlineKeyboardButton(f"Page {page + 1}/{total_pages}", callback_data="hpage:nop"))
+    nav_row.append(InlineKeyboardButton("Next »", callback_data=f"hpage:{next_page}"))
+    buttons.append(nav_row)
+
     return InlineKeyboardMarkup(buttons)
 
 
@@ -168,12 +228,12 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     photo=start_pic,
                     caption=caption_text,
                     parse_mode="HTML",
-                    reply_markup=_get_help_grid(),
+                    reply_markup=_get_help_grid(page=0),
                 )
                 return
             except Exception:
                 pass
-        await msg.reply_html(caption_text, reply_markup=_get_help_grid())
+        await msg.reply_html(caption_text, reply_markup=_get_help_grid(page=0))
     else:
         bot_username = context.bot.username or "AnimeModBot"
         pm_url = f"https://t.me/{bot_username}?start=help"
@@ -191,12 +251,12 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if start_pic:
             try:
                 await msg.reply_photo(
-                    photo=start_pic, caption=text, parse_mode="HTML", reply_markup=_get_help_grid()
+                    photo=start_pic, caption=text, parse_mode="HTML", reply_markup=_get_help_grid(page=0)
                 )
                 return
             except Exception:
                 pass
-        await msg.reply_html(text, reply_markup=_get_help_grid())
+        await msg.reply_html(text, reply_markup=_get_help_grid(page=0))
     else:
         bot_username = context.bot.username or "AnimeModBot"
         pm_url = f"https://t.me/{bot_username}?start=help"
@@ -209,12 +269,30 @@ async def help_category_callback(update: Update, context: ContextTypes.DEFAULT_T
     data = query.data
     is_photo = bool(query.message and query.message.photo)
 
+    if data.startswith("hpage:"):
+        page_str = data.split(":")[1]
+        if page_str == "nop":
+            await query.answer()
+            return
+        page = int(page_str)
+        text = "<b>:: COMMAND GRIMOIRE ::</b>\nSelect a category below to view commands:"
+        if is_photo:
+            await query.message.edit_caption(
+                caption=text, parse_mode="HTML", reply_markup=_get_help_grid(page=page)
+            )
+        else:
+            await query.message.edit_text(text, parse_mode="HTML", reply_markup=_get_help_grid(page=page))
+        await query.answer()
+        return
+
     if data == "hcat:main":
         text = "<b>:: COMMAND GRIMOIRE ::</b>\nSelect a category below to view commands:"
         if is_photo:
-            await query.message.edit_caption(caption=text, parse_mode="HTML", reply_markup=_get_help_grid())
+            await query.message.edit_caption(
+                caption=text, parse_mode="HTML", reply_markup=_get_help_grid(page=0)
+            )
         else:
-            await query.message.edit_text(text, parse_mode="HTML", reply_markup=_get_help_grid())
+            await query.message.edit_text(text, parse_mode="HTML", reply_markup=_get_help_grid(page=0))
         await query.answer()
         return
 
@@ -222,7 +300,7 @@ async def help_category_callback(update: Update, context: ContextTypes.DEFAULT_T
         cat_key = data.split(":")[1]
         cat_text = CATEGORIES.get(cat_key, "No category info found.")
         back_markup = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("[ < Back to Categories ]", callback_data="hcat:main")]]
+            [[InlineKeyboardButton("[ « Back to Grimoire ]", callback_data="hcat:main")]]
         )
         if is_photo:
             await query.message.edit_caption(caption=cat_text, parse_mode="HTML", reply_markup=back_markup)
@@ -234,5 +312,4 @@ async def help_category_callback(update: Update, context: ContextTypes.DEFAULT_T
 def register(application):
     application.add_handler(CommandHandler("start", start_cmd))
     application.add_handler(CommandHandler("help", help_cmd))
-    application.add_handler(CallbackQueryHandler(help_category_callback, pattern=r"^hcat:"))
-
+    application.add_handler(CallbackQueryHandler(help_category_callback, pattern=r"^(hcat:|hpage:)"))

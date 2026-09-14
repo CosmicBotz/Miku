@@ -467,4 +467,73 @@ async def demote_fed_admin(fed_id: str, user_id: int) -> bool:
     return result.modified_count > 0
 
 
+# ---------------------------------------------------------------------
+# AFK Users
+# ---------------------------------------------------------------------
+async def set_afk(user_id: int, reason: str = "") -> None:
+    db = get_db()
+    await db.afk_users.update_one(
+        {"_id": user_id},
+        {
+            "$set": {
+                "_id": user_id,
+                "reason": reason,
+                "time": datetime.now(timezone.utc),
+            }
+        },
+        upsert=True,
+    )
+
+
+async def unset_afk(user_id: int) -> bool:
+    db = get_db()
+    result = await db.afk_users.delete_one({"_id": user_id})
+    return result.deleted_count > 0
+
+
+async def get_afk(user_id: int) -> Optional[dict]:
+    db = get_db()
+    return await db.afk_users.find_one({"_id": user_id})
+
+
+# ---------------------------------------------------------------------
+# Whispers
+# ---------------------------------------------------------------------
+async def save_whisper(whisper_id: str, sender_id: int, target_id: int, secret_text: str) -> None:
+    db = get_db()
+    await db.whispers.insert_one(
+        {
+            "_id": whisper_id,
+            "sender_id": sender_id,
+            "target_id": target_id,
+            "secret_text": secret_text,
+            "created_at": datetime.now(timezone.utc),
+        }
+    )
+
+
+async def get_whisper(whisper_id: str) -> Optional[dict]:
+    db = get_db()
+    return await db.whispers.find_one({"_id": whisper_id})
+
+
+# ---------------------------------------------------------------------
+# Neko Mode
+# ---------------------------------------------------------------------
+async def set_neko_mode(chat_id: int, enabled: bool) -> None:
+    db = get_db()
+    await db.neko_chats.update_one(
+        {"_id": chat_id},
+        {"$set": {"_id": chat_id, "neko_enabled": enabled}},
+        upsert=True,
+    )
+
+
+async def get_neko_mode(chat_id: int) -> bool:
+    db = get_db()
+    doc = await db.neko_chats.find_one({"_id": chat_id})
+    return doc.get("neko_enabled", False) if doc else False
+
+
+
 
