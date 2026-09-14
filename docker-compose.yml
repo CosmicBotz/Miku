@@ -1,0 +1,28 @@
+services:
+  anime-mod-bot:
+    build: .
+    container_name: anime-mod-bot
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: "UTC"
+      PORT: "8080"
+      # Talk to the bundled local Mongo container below by default.
+      # Point this at MongoDB Atlas (or another managed Mongo) instead for
+      # production; you generally won't need the `mongo` service at all then.
+      ANIME_BOT_MONGO_URI: "mongodb://mongo:27017"
+
+  mongo:
+    image: mongo:7
+    container_name: anime-mod-bot-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

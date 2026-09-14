@@ -1,0 +1,79 @@
+# =========================================================
+#  Anime Mod Bot - sample configuration
+#  Copy this file to config.yaml and fill in your values:
+#     cp config.sample.yaml config.yaml
+#
+#  Every value below can also be set (or overridden) with an environment
+#  variable instead of editing this file - handy for Render/Koyeb/Heroku
+#  style platforms where secrets go in a dashboard, not a committed file.
+#  The env var name for each setting is noted next to it. Env vars always
+#  win over whatever is written here.
+# =========================================================
+
+telegram:
+  # Get this from @BotFather on Telegram
+  # env: ANIME_BOT_TOKEN
+  bot_token: "123456:YOUR-TELEGRAM-BOT-TOKEN"
+  # List of start/help header image URLs (randomly picked when user sends /start or /help in PM).
+  # env: ANIME_BOT_START_PICS (comma-separated URLs)
+  start_pics:
+    - "https://example.com/pic1.jpg"
+    - "https://example.com/pic2.jpg"
+
+owner:
+  # Your numeric Telegram user id (get it from @userinfobot).
+  # This user always has full admin rights over the bot, in every chat.
+  # env: ANIME_BOT_OWNER_ID
+  owner_id: 123456789
+  # Extra trusted user ids that also get owner-level bot commands (optional).
+  # env: ANIME_BOT_SUDO_USERS (comma-separated, e.g. "111,222,333")
+  sudo_users: []
+
+mongodb:
+  # MongoDB connection string - works with a local mongod, MongoDB Atlas
+  # (free tier is plenty for this bot), or any managed Mongo add-on your
+  # host offers. env: ANIME_BOT_MONGO_URI (also accepts the common
+  # MONGODB_URI / MONGO_URL names some platforms set automatically)
+  uri: "mongodb://localhost:27017"
+  # env: ANIME_BOT_MONGO_DB_NAME
+  db_name: "anime_mod_bot"
+
+server:
+  # Port for the dummy health-check web server (see bot/webserver.py).
+  # The bot itself talks to Telegram via long polling, not real webhooks -
+  # this tiny HTTP server exists purely so PaaS platforms like Render,
+  # Koyeb, and Heroku see a bound port and a passing health check.
+  # Render/Koyeb/Heroku set the standard PORT env var automatically, and
+  # that always takes priority over this value.
+  # env: PORT (standard) or ANIME_BOT_PORT
+  port: 8080
+
+logging:
+  # env: ANIME_BOT_LOG_LEVEL
+  level: "INFO"   # DEBUG, INFO, WARNING, ERROR
+
+# ---------------------------------------------------------
+# Defaults applied to a chat the first time the bot sees it.
+# Every one of these can later be changed per-chat with commands
+# (see /help), so this is just the starting point. No env var
+# overrides here on purpose - these are per-chat, not global secrets.
+# ---------------------------------------------------------
+defaults:
+  welcome_enabled: true
+  welcome_message: >
+    ✨ Welcome to {chat_title}, {mention}! ✨
+    You are member #{count}. Please check /rules and have fun, senpai~
+  goodbye_enabled: true
+  goodbye_message: "{first} has left the guild... sayonara~ 👋"
+  clean_welcome: true             # delete the previous welcome message when a new member joins
+  clean_service_messages: true    # delete Telegram's own "user joined/left" service messages
+
+  warn_limit: 3
+  warn_mode: "mute"               # what happens at warn_limit: mute | kick | ban
+
+  flood_limit: 7                  # this many messages within flood_window seconds triggers antiflood
+  flood_window: 8
+  flood_mode: "mute"              # mute | kick | ban
+
+  antispam_enabled: true
+  max_links_per_message: 3        # messages with more links than this are auto-deleted

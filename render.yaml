@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: anime-mod-bot
+    env: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ANIME_BOT_TOKEN
+        sync: false
+      - key: ANIME_BOT_OWNER_ID
+        sync: false
+      - key: ANIME_BOT_SUDO_USERS
+        sync: false
+      - key: ANIME_BOT_MONGO_URI
+        sync: false
+      - key: ANIME_BOT_MONGO_DB_NAME
+        value: anime_mod_bot
+      - key: ANIME_BOT_LOG_LEVEL
+        value: INFO
+      # PORT is injected by Render automatically - no need to set it here.
