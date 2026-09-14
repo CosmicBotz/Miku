@@ -6,3 +6,8 @@ config.yaml
 venv/
 .venv/
 .DS_Store
+
+# Ignore all markdown files except README.md
+*.md
+!README.md
+!readme.md
