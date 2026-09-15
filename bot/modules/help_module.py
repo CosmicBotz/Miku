@@ -52,6 +52,7 @@ CATEGORIES = {
         "» /mute [user] [reason] - Mute user indefinitely.\n"
         "» /unmute [user] - Restore messaging permissions.\n"
         "» /tmute &lt;user&gt; &lt;time&gt; [reason] - Temp mute (e.g. /tmute @user 1d Spam).\n"
+        "» /cleancommands on|off - Auto-delete command trigger messages in group chat.\n"
     ),
     "warnings": (
         "<b>:: WARNINGS SYSTEM ::</b>\n\n"
@@ -131,6 +132,7 @@ CATEGORIES = {
         "» /8ball &lt;question&gt; - Magic 8-Ball answer.\n"
         "» /ship - Pair two random chat members with romance score.\n"
         "» /power - Measure user's anime power level & tier rank.\n"
+        "» /q / /quote - Generate custom Quotely sticker from replied message.\n"
     ),
     "anime": (
         "<b>:: ANIME & HINDI DUBS ::</b>\n\n"

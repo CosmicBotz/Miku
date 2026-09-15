@@ -59,6 +59,7 @@ _CHAT_DEFAULTS: Dict[str, Any] = {
     "raid_time": 3600,
     "blocklist_mode": "delete",
     "blacklist_delete": True,
+    "clean_commands": False,
 }
 
 

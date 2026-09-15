@@ -56,6 +56,16 @@ class ApplicationProxy:
                             if cmd_used in disabled_cmds or any(c in disabled_cmds for c in command_list):
                                 return
 
+                    # Handle clean_commands auto-deletion
+                    clean_cmds = getattr(settings, "clean_commands", False)
+                    if clean_cmds and update.effective_message:
+                        msg_text = update.effective_message.text or update.effective_message.caption or ""
+                        if msg_text.startswith("/"):
+                            try:
+                                context.application.create_task(update.effective_message.delete())
+                            except Exception:
+                                pass
+
                 return await orig_callback(update, context)
 
             handler.callback = check_disabled_callback
