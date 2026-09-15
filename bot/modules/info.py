@@ -8,6 +8,7 @@ from telegram import (
 from telegram.ext import CommandHandler, ContextTypes
 
 from ..utils.extraction import get_target_user
+from ..utils.telethon_client import resolve_entity
 
 
 def _mention(user) -> str:
@@ -62,8 +63,16 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if target_chat.username:
                     lines.append(f"» <b>Target Username:</b> @{target_chat.username}")
             except Exception:
-                await msg.reply_text(f"Could not find user or chat: {arg}")
-                return
+                resolved = await resolve_entity(arg)
+                if resolved:
+                    lines.append(f"» <b>Target Type:</b> {resolved.entity_type}")
+                    lines.append(f"» <b>Target Name:</b> {resolved.display_name}")
+                    lines.append(f"» <b>Target ID:</b> <code>{resolved.id}</code>")
+                    if resolved.username:
+                        lines.append(f"» <b>Target Username:</b> @{resolved.username}")
+                else:
+                    await msg.reply_text(f"Could not find user or chat: {arg}")
+                    return
 
     if not context.args:
         lines.append(f"» <b>Your ID:</b> <code>{user.id}</code>")

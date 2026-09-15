@@ -25,6 +25,8 @@ class Config:
     log_level: str
     start_pics: List[str]
     defaults: Dict[str, Any]
+    api_id: "int | None" = None
+    api_hash: "str | None" = None
     raw: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -112,6 +114,13 @@ def load_config(path: str = "config.yaml") -> Config:
         else:
             start_pics = []
 
+    api_id_val = _env("TELEGRAM_API_ID", "API_ID", "ANIME_BOT_API_ID") or telegram.get("api_id")
+    api_id = int(api_id_val) if api_id_val and str(api_id_val).isdigit() else None
+
+    api_hash = _env("TELEGRAM_API_HASH", "API_HASH", "ANIME_BOT_API_HASH") or telegram.get("api_hash")
+    if api_hash:
+        api_hash = str(api_hash).strip()
+
     _CONFIG = Config(
         bot_token=bot_token,
         owner_id=owner_id,
@@ -122,6 +131,8 @@ def load_config(path: str = "config.yaml") -> Config:
         log_level=log_level,
         start_pics=start_pics,
         defaults=defaults,
+        api_id=api_id,
+        api_hash=api_hash,
         raw=data,
     )
     return _CONFIG

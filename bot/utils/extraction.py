@@ -7,6 +7,8 @@ from typing import Optional
 from telegram import Update, User
 from telegram.ext import ContextTypes
 
+from .telethon_client import resolve_entity
+
 
 async def get_target_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Optional[User]:
     message = update.effective_message
@@ -23,6 +25,16 @@ async def get_target_user(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 chat = await context.bot.get_chat(arg)
                 return User(id=chat.id, first_name=chat.first_name or arg, is_bot=False, username=chat.username)
             except Exception:
+                # Fall back to Telethon entity resolution for arbitrary usernames
+                resolved = await resolve_entity(arg)
+                if resolved:
+                    return User(
+                        id=resolved.id,
+                        first_name=resolved.first_name or resolved.display_name,
+                        last_name=resolved.last_name,
+                        is_bot=resolved.is_bot,
+                        username=resolved.username,
+                    )
                 return None
         if arg.lstrip("-").isdigit():
             try:
@@ -38,6 +50,15 @@ async def get_target_user(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                         username=chat.username,
                     )
                 except Exception:
+                    resolved = await resolve_entity(int(arg))
+                    if resolved:
+                        return User(
+                            id=resolved.id,
+                            first_name=resolved.first_name or resolved.display_name,
+                            last_name=resolved.last_name,
+                            is_bot=resolved.is_bot,
+                            username=resolved.username,
+                        )
                     return None
 
     if message.reply_to_message and message.reply_to_message.from_user:

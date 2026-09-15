@@ -14,6 +14,11 @@ telegram:
   # Get this from @BotFather on Telegram
   # env: ANIME_BOT_TOKEN
   bot_token: "123456:YOUR-TELEGRAM-BOT-TOKEN"
+  # Telegram API credentials from my.telegram.org for Telethon username/ID resolution
+  # env: TELEGRAM_API_ID / API_ID / ANIME_BOT_API_ID
+  api_id: 123456
+  # env: TELEGRAM_API_HASH / API_HASH / ANIME_BOT_API_HASH
+  api_hash: "YOUR-TELEGRAM-API-HASH"
   # List of start/help header image URLs (randomly picked when user sends /start or /help in PM).
   # env: ANIME_BOT_START_PICS (comma-separated URLs)
   start_pics:

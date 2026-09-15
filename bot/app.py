@@ -8,6 +8,7 @@ from telegram.ext import Application, ApplicationBuilder, ContextTypes
 from .config import get_config
 from .database.base import close_db, init_db
 from .modules import load_all_modules
+from .utils.telethon_client import close_telethon, init_telethon
 from .webserver import start_webserver, stop_webserver
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ async def _post_init(application: Application) -> None:
     """Runs once, inside PTB's own event loop, before polling starts."""
     cfg = get_config()
     await init_db(cfg.mongo_uri, cfg.mongo_db_name)
+    await init_telethon(cfg.api_id, cfg.api_hash, cfg.bot_token)
     application.bot_data["webserver_runner"] = await start_webserver(cfg.port)
     logger.info("Anime Mod Bot is ready.")
 
@@ -73,6 +75,7 @@ async def _post_shutdown(application: Application) -> None:
     runner = application.bot_data.get("webserver_runner")
     if runner is not None:
         await stop_webserver(runner)
+    await close_telethon()
     await close_db()
 
 
