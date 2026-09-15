@@ -48,23 +48,35 @@ def generate_quote_card(
     avatar_bytes: bytes | None = None,
     time_str: str | None = None,
 ) -> bytes:
-    """Generate a high-quality WebP quote sticker image using Pillow."""
-    W, H = 512, 512
-    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
+    """Generate a WebP quote sticker sized to its content - a rectangle like a
+    real chat-bubble screenshot, not a fixed square. Telegram stickers only
+    require one side to be exactly 512px, so width is fixed at 512 and
+    height grows/shrinks with the quoted text (capped at 512, same as a
+    typical @QuotLyBot-style card)."""
+    W = 512
+    TOP, BOTTOM = 30, 30
+    HEADER_H = 110   # avatar + name/handle block, ends at the divider
+    LINE_H = 26
+    FOOTER_H = 46    # timestamp row
+    MIN_H, MAX_H = 220, 512
 
     accent_color = _get_user_accent_color(user_id)
 
-    # Calculate card bounds & wrapped text
-    wrapped_lines = textwrap.wrap(text, width=32)
+    wrapped_lines = textwrap.wrap(text, width=32) or [""]
     max_lines = 10
     display_lines = wrapped_lines[:max_lines]
     if len(wrapped_lines) > max_lines:
         display_lines[-1] = display_lines[-1][:28] + "..."
 
+    content_h = TOP + HEADER_H + len(display_lines) * LINE_H + FOOTER_H + BOTTOM
+    H = max(MIN_H, min(MAX_H, content_h))
+
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
     # Card background box
     draw.rounded_rectangle(
-        [15, 30, 497, 482],
+        [15, TOP, W - 15, H - BOTTOM],
         radius=24,
         fill=(24, 24, 36, 245),
         outline=(55, 55, 75, 255),
@@ -81,28 +93,26 @@ def generate_quote_card(
     else:
         avatar_icon = _generate_fallback_avatar(name[0], accent_color, size=70)
 
-    img.paste(avatar_icon, (40, 55), avatar_icon)
+    img.paste(avatar_icon, (40, TOP + 25), avatar_icon)
 
     # Name and Handle
-    draw.text((125, 60), name[:24], fill=accent_color)
-    if username:
-        draw.text((125, 88), f"@{username}", fill=(140, 145, 165))
-    else:
-        draw.text((125, 88), "Telegram Member", fill=(140, 145, 165))
+    draw.text((125, TOP + 30), name[:24], fill=accent_color)
+    draw.text((125, TOP + 58), f"@{username}" if username else "Telegram Member", fill=(140, 145, 165))
 
     # Divider line
-    draw.line([(40, 140), (472, 140)], fill=(45, 45, 65, 255), width=1)
+    divider_y = TOP + HEADER_H
+    draw.line([(40, divider_y), (W - 40, divider_y)], fill=(45, 45, 65, 255), width=1)
 
     # Message Text Lines
-    y_offset = 160
+    y_offset = divider_y + 20
     for line in display_lines:
         draw.text((45, y_offset), line, fill=(240, 240, 250))
-        y_offset += 24
+        y_offset += LINE_H
 
     # Timestamp
     if not time_str:
         time_str = datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M")
-    draw.text((430, 448), time_str, fill=(110, 115, 140))
+    draw.text((W - 82, H - BOTTOM - 34), time_str, fill=(110, 115, 140))
 
     buf = io.BytesIO()
     img.save(buf, format="WEBP", quality=95)
@@ -113,13 +123,16 @@ async def quotely_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Generate a custom quote sticker from a replied message."""
     msg = update.effective_message
     if not msg or not msg.reply_to_message:
-        await msg.reply_html("<b>Usage:</b> Reply to a message with <code>/q</code> or <code>/quote</code> to generate a quote sticker.")
+        await msg.reply_html(
+            "<b>Usage:</b> Reply to a message with <code>/q</code> or <code>/quote</code> to generate a quote sticker.",
+            allow_sending_without_reply=True,
+        )
         return
 
     reply = msg.reply_to_message
     text_to_quote = reply.text or reply.caption
     if not text_to_quote:
-        await msg.reply_html("[!] The replied message contains no text to quote.")
+        await msg.reply_html("[!] The replied message contains no text to quote.", allow_sending_without_reply=True)
         return
 
     sender = reply.from_user
@@ -161,10 +174,14 @@ async def quotely_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             avatar_bytes=avatar_bytes,
             time_str=time_str,
         )
-
-        await msg.reply_sticker(sticker=io.BytesIO(sticker_data))
+        # Reply to the *quoted* message rather than the /q command message -
+        # cmdclean mode may already have deleted the command message by the
+        # time we get here, which used to make reply_sticker fail outright.
+        # allow_sending_without_reply covers the same case if the quoted
+        # message itself somehow vanishes too.
+        await reply.reply_sticker(sticker=io.BytesIO(sticker_data), allow_sending_without_reply=True)
     except Exception as e:
-        await msg.reply_html(f"[!] Error generating quote sticker: <code>{e}</code>")
+        await msg.reply_html(f"[!] Error generating quote sticker: <code>{e}</code>", allow_sending_without_reply=True)
 
 
 def register(application):

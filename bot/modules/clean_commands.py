@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
 
 from ..config import get_config
 from ..database import crud
@@ -60,5 +60,38 @@ async def clean_commands_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 
+async def clean_any_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Delete ANY command message (any user, any bot's command - not just ours)
+    when clean_commands mode is on for this chat.
+
+    Runs in its own group *before* command dispatch (group 0), so it deletes
+    the trigger message without depending on whether this bot even has a
+    handler for that command.
+    """
+    msg = update.effective_message
+    chat = update.effective_chat
+    if not msg or not chat or chat.type not in ("group", "supergroup"):
+        return
+
+    cfg = get_config()
+    settings = await crud.get_or_create_chat(chat.id, chat.title, cfg.defaults)
+    if not getattr(settings, "clean_commands", False):
+        return
+
+    try:
+        await msg.delete()
+    except Exception:
+        pass
+
+
 def register(application):
     application.add_handler(CommandHandler(["cleancommands", "cleancommand", "cmdclean"], clean_commands_cmd))
+    # group=-1: runs before the real CommandHandlers in group 0. PTB only
+    # runs the first matching handler *within* a group, so this has to live
+    # in its own group - sharing group 0 would let it race the actual
+    # command handlers and sometimes swallow them instead of just deleting
+    # the trigger message.
+    application.add_handler(
+        MessageHandler(filters.COMMAND & filters.ChatType.GROUPS, clean_any_command_handler),
+        group=-1,
+    )
