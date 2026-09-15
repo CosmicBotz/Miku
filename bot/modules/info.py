@@ -43,74 +43,124 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
 
-    lines = []
+    lines = ["<b>:: IDENTIFICATION CARD ::</b>\n"]
 
-    # If arguments are provided (e.g. /id @username or /id 123456)
+    # 1. COMMAND USER
+    if user:
+        lines.append("» <b>USER WHO USED COMMAND</b>")
+        lines.append(f"• <b>Name:</b> {_mention(user)}")
+        lines.append(f"• <b>User ID:</b> <code>{user.id}</code>")
+        if user.username:
+            lines.append(f"• <b>Username:</b> @{user.username}")
+        lines.append("")
+
+    # 2. CURRENT CHAT
+    if chat:
+        chat_title = chat.title or chat.first_name or "Private Chat"
+        chat_type = chat.type.capitalize()
+        lines.append("» <b>CHAT WHERE USED</b>")
+        lines.append(f"• <b>Title:</b> {chat_title}")
+        lines.append(f"• <b>Chat ID:</b> <code>{chat.id}</code>")
+        lines.append(f"• <b>Type:</b> {chat_type}")
+        if chat.username:
+            lines.append(f"• <b>Chat Username:</b> @{chat.username}")
+        linked_id = getattr(chat, "linked_chat_id", None)
+        if linked_id:
+            lines.append(f"• <b>Linked Discussion Chat ID:</b> <code>{linked_id}</code>")
+        lines.append("")
+
+    # 3. SPECIFIED TARGET
     if context.args:
+        lines.append("» <b>SPECIFIED TARGET ENTITY</b>")
         target = await get_target_user(update, context)
         if target:
-            lines.append(f"» <b>Target User:</b> {_mention(target)}")
-            lines.append(f"» <b>Target User ID:</b> <code>{target.id}</code>")
+            lines.append(f"• <b>Target User:</b> {_mention(target)}")
+            lines.append(f"• <b>User ID:</b> <code>{target.id}</code>")
             if target.username:
-                lines.append(f"» <b>Target Username:</b> @{target.username}")
+                lines.append(f"• <b>Username:</b> @{target.username}")
         else:
             arg = context.args[0]
             try:
                 target_chat = await context.bot.get_chat(arg)
                 name = target_chat.title or target_chat.first_name or str(target_chat.id)
-                lines.append(f"» <b>Target Name:</b> {name}")
-                lines.append(f"» <b>Target ID:</b> <code>{target_chat.id}</code>")
+                lines.append(f"• <b>Target Name:</b> {name}")
+                lines.append(f"• <b>Target ID:</b> <code>{target_chat.id}</code>")
+                lines.append(f"• <b>Target Type:</b> {target_chat.type.capitalize()}")
                 if target_chat.username:
-                    lines.append(f"» <b>Target Username:</b> @{target_chat.username}")
+                    lines.append(f"• <b>Target Username:</b> @{target_chat.username}")
             except Exception:
                 resolved = await resolve_entity(arg)
                 if resolved:
-                    lines.append(f"» <b>Target Type:</b> {resolved.entity_type}")
-                    lines.append(f"» <b>Target Name:</b> {resolved.display_name}")
-                    lines.append(f"» <b>Target ID:</b> <code>{resolved.id}</code>")
+                    lines.append(f"• <b>Target Name:</b> {resolved.display_name}")
+                    lines.append(f"• <b>Target ID:</b> <code>{resolved.id}</code>")
+                    lines.append(f"• <b>Target Type:</b> {resolved.entity_type}")
                     if resolved.username:
-                        lines.append(f"» <b>Target Username:</b> @{resolved.username}")
+                        lines.append(f"• <b>Target Username:</b> @{resolved.username}")
                 else:
                     await msg.reply_text(f"Could not find user or chat: {arg}")
                     return
+        lines.append("")
 
-    if not context.args:
-        lines.append(f"» <b>Your ID:</b> <code>{user.id}</code>")
-        if user.username:
-            lines.append(f"» <b>Your Username:</b> @{user.username}")
-        lines.append(f"» <b>Chat ID:</b> <code>{chat.id}</code>")
+    # 4. REPLIED MESSAGE & TARGET USER / CHANNEL
+    if msg.reply_to_message:
+        reply = msg.reply_to_message
+        lines.append("» <b>REPLIED MESSAGE & TARGET USER</b>")
+        lines.append(f"• <b>Replied Message ID:</b> <code>{reply.message_id}</code>")
 
-        if msg.reply_to_message:
-            reply = msg.reply_to_message
-            lines.append(f"» <b>Replied Message ID:</b> <code>{reply.message_id}</code>")
-            if reply.from_user:
-                lines.append(f"» <b>Replied User ID:</b> <code>{reply.from_user.id}</code>")
-                if reply.from_user.username:
-                    lines.append(f"» <b>Replied Username:</b> @{reply.from_user.username}")
+        if reply.from_user:
+            lines.append(f"• <b>Replied User:</b> {_mention(reply.from_user)}")
+            lines.append(f"• <b>Replied User ID:</b> <code>{reply.from_user.id}</code>")
+            if reply.from_user.username:
+                lines.append(f"• <b>Replied Username:</b> @{reply.from_user.username}")
 
-            # PTB 21+ / Bot API 7.0+ MessageOrigin support
-            origin = getattr(reply, "forward_origin", None)
-            if origin:
-                if isinstance(origin, MessageOriginUser):
-                    lines.append(f"» <b>Forwarded User ID:</b> <code>{origin.sender_user.id}</code>")
-                    if origin.sender_user.username:
-                        lines.append(f"» <b>Forwarded Username:</b> @{origin.sender_user.username}")
-                elif isinstance(origin, (MessageOriginChat, MessageOriginChannel)):
-                    f_chat = getattr(origin, "sender_chat", None) or getattr(origin, "chat", None)
-                    if f_chat:
-                        lines.append(f"» <b>Forwarded Chat ID:</b> <code>{f_chat.id}</code>")
-                        if f_chat.username:
-                            lines.append(f"» <b>Forwarded Chat Username:</b> @{f_chat.username}")
-                elif isinstance(origin, MessageOriginHiddenUser):
-                    lines.append(f"» <b>Forwarded User:</b> {origin.sender_user_name} (Hidden)")
-            else:
-                # Safe fallbacks for legacy PTB attributes
-                if getattr(reply, "forward_from", None):
-                    lines.append(f"» <b>Forwarded User ID:</b> <code>{reply.forward_from.id}</code>")
-                if getattr(reply, "forward_from_chat", None):
-                    lines.append(f"» <b>Forwarded Chat ID:</b> <code>{reply.forward_from_chat.id}</code>")
+        if getattr(reply, "sender_chat", None):
+            s_chat = reply.sender_chat
+            lines.append(f"• <b>Sent On Behalf Of Channel:</b> {s_chat.title or 'Channel'}")
+            lines.append(f"• <b>Sender Channel ID:</b> <code>{s_chat.id}</code>")
+            if s_chat.username:
+                lines.append(f"• <b>Sender Channel Username:</b> @{s_chat.username}")
 
-    await msg.reply_html("\n".join(lines))
+        origin = getattr(reply, "forward_origin", None)
+        if origin:
+            lines.append("")
+            lines.append("» <b>FORWARDED ORIGIN / CHANNEL</b>")
+            if isinstance(origin, MessageOriginUser):
+                f_u = origin.sender_user
+                lines.append(f"• <b>Forwarded User:</b> {_mention(f_u)}")
+                lines.append(f"• <b>Forwarded User ID:</b> <code>{f_u.id}</code>")
+                if f_u.username:
+                    lines.append(f"• <b>Forwarded Username:</b> @{f_u.username}")
+            elif isinstance(origin, (MessageOriginChat, MessageOriginChannel)):
+                f_chat = getattr(origin, "sender_chat", None) or getattr(origin, "chat", None)
+                if f_chat:
+                    f_name = f_chat.title or f_chat.first_name or str(f_chat.id)
+                    lines.append(f"• <b>Forwarded Channel/Chat:</b> {f_name}")
+                    lines.append(f"• <b>Forwarded Channel/Chat ID:</b> <code>{f_chat.id}</code>")
+                    if f_chat.username:
+                        lines.append(f"• <b>Forwarded Username:</b> @{f_chat.username}")
+            elif isinstance(origin, MessageOriginHiddenUser):
+                lines.append(f"• <b>Forwarded User:</b> {origin.sender_user_name} <i>(Hidden Profile)</i>")
+        else:
+            f_u = getattr(reply, "forward_from", None)
+            if f_u:
+                lines.append("")
+                lines.append("» <b>FORWARDED ORIGIN / USER</b>")
+                lines.append(f"• <b>Forwarded User:</b> {_mention(f_u)}")
+                lines.append(f"• <b>Forwarded User ID:</b> <code>{f_u.id}</code>")
+                if f_u.username:
+                    lines.append(f"• <b>Forwarded Username:</b> @{f_u.username}")
+
+            f_c = getattr(reply, "forward_from_chat", None)
+            if f_c:
+                lines.append("")
+                lines.append("» <b>FORWARDED ORIGIN / CHANNEL</b>")
+                lines.append(f"• <b>Forwarded Channel/Chat:</b> {f_c.title or 'Channel'}")
+                lines.append(f"• <b>Forwarded Channel/Chat ID:</b> <code>{f_c.id}</code>")
+                if f_c.username:
+                    lines.append(f"• <b>Forwarded Username:</b> @{f_c.username}")
+
+    clean_text = "\n".join(lines).strip()
+    await msg.reply_html(clean_text)
 
 
 def register(application):

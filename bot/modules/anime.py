@@ -275,3 +275,5 @@ def register(application):
     application.add_handler(CommandHandler("character", character_cmd))
     application.add_handler(CommandHandler("quote", quote_cmd))
     application.add_handler(CommandHandler("waifu", waifu_cmd))
+
+
