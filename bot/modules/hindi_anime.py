@@ -1,4 +1,6 @@
+from collections import defaultdict
 import math
+import re
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
@@ -10,8 +12,51 @@ def _progress_bar(val: int, max_val: int, length: int = 10) -> str:
     return "█" * filled + "░" * (length - filled)
 
 
+def _group_and_format_dub_results(results: list[dict]) -> str:
+    grouped = defaultdict(list)
+    for item in results:
+        title = item.get("title", "Unknown Title")
+        m = re.search(
+            r"^(.*?)\s*\((Season[^)]+|Ep[^)]+|Eps[^)]+|Specials?|Movie|Part[^)]+)\)$",
+            title,
+            re.IGNORECASE,
+        )
+        if m:
+            base_title = m.group(1).strip()
+            season_tag = m.group(2).strip()
+        else:
+            base_title = title.strip()
+            season_tag = None
+
+        grouped[base_title].append((season_tag, item))
+
+    lines = []
+    for base_title, items in grouped.items():
+        lines.append(f"» <b>{base_title}</b>")
+        for season_tag, item in items:
+            tag_label = f"• <b>{season_tag}</b>" if season_tag else "• <b>Main Series / Movie</b>"
+            lines.append(f"  {tag_label}")
+
+            dubs = item.get("hindi_dubs", [])
+            if dubs:
+                for dub in dubs:
+                    plat = dub.get("platform", "Unknown")
+                    rel = dub.get("release_date") or "N/A"
+                    stat = dub.get("status") or "N/A"
+                    mtype = (dub.get("media_type") or "series").capitalize()
+                    lines.append(f"    - Platform: <b>{plat}</b> | Release: <code>{rel}</code> | Status: <b>{stat}</b> ({mtype})")
+            else:
+                lines.append("    - <i>No platform metadata available.</i>")
+
+            if item.get("notes"):
+                lines.append(f"    - Note: <i>{item.get('notes')}</i>")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
 async def hindidub_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Search for Hindi dubbed anime by title using aninidhi."""
+    """Search for Hindi dubbed anime by title and merge seasons under base title."""
     msg = update.effective_message
     query = " ".join(context.args)
     if not query:
@@ -28,24 +73,8 @@ async def hindidub_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.reply_html(f"[!] No Hindi-dubbed anime found matching <b>'{query}'</b>.")
             return
 
-        text = f"<b>:: HINDI DUB SEARCH RESULTS FOR '{query.upper()}' ::</b>\n\n"
-        for item in results[:5]:
-            title = item.get("title", "Unknown Title")
-            text += f"» <b>{title}</b>\n"
-            dubs = item.get("hindi_dubs", [])
-            if dubs:
-                for dub in dubs:
-                    platform = dub.get("platform", "Unknown Platform")
-                    rel_date = dub.get("release_date") or "N/A"
-                    status = dub.get("status") or "N/A"
-                    media_type = (dub.get("media_type") or "series").capitalize()
-                    text += f"  • <b>Platform:</b> {platform}\n"
-                    text += f"    Release: <code>{rel_date}</code> | Status: <b>{status}</b> ({media_type})\n"
-            else:
-                text += "  • <i>No specific platform metadata available.</i>\n"
-            if item.get("notes"):
-                text += f"  • <i>Note: {item.get('notes')}</i>\n"
-            text += "\n"
+        formatted = _group_and_format_dub_results(results[:10])
+        text = f"<b>:: HINDI DUB SEARCH RESULTS FOR '{query.upper()}' ::</b>\n\n{formatted}"
 
         keyboard = InlineKeyboardMarkup(
             [[InlineKeyboardButton("View Platform Stats", callback_data="hnd_stats")]]
@@ -57,7 +86,7 @@ async def hindidub_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def dubinfo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Get full per-platform dub breakdown for an anime title."""
+    """Get full per-platform dub breakdown for an anime title with season merging."""
     msg = update.effective_message
     query = " ".join(context.args)
     if not query:
@@ -71,16 +100,8 @@ async def dubinfo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.reply_html(f"[!] No dub details found for <b>'{query}'</b>.")
             return
 
-        text = f"<b>:: HINDI DUB BREAKDOWN — '{query.upper()}' ::</b>\n\n"
-        for entry in info[:4]:
-            title = entry.get("title", "Unknown")
-            text += f"» <b>{title}</b>\n"
-            for d in entry.get("hindi_dubs", []):
-                text += (
-                    f"  • <b>{d.get('platform')}:</b> Release: <code>{d.get('release_date', 'N/A')}</code> "
-                    f"| Status: {d.get('status', 'N/A')}\n"
-                )
-            text += "\n"
+        formatted = _group_and_format_dub_results(info[:10])
+        text = f"<b>:: HINDI DUB BREAKDOWN — '{query.upper()}' ::</b>\n\n{formatted}"
 
         await msg.reply_html(text)
     except Exception as e:
@@ -144,15 +165,8 @@ async def _send_platform_catalog(target_msg, platform_name: str):
             await target_msg.reply_html(f"[!] No Hindi-dubbed anime found on <b>{platform_name}</b>.")
             return
 
-        text = f"<b>:: HINDI DUBS ON {platform_name.upper()} ({len(items)} Titles) ::</b>\n\n"
-        for item in items[:12]:
-            title = item.get("title", "Unknown")
-            dubs = [d for d in item.get("hindi_dubs", []) if platform_name.lower() in d.get("platform", "").lower()]
-            rel = dubs[0].get("release_date") if dubs else "N/A"
-            text += f"• <b>{title}</b> (Release: <code>{rel}</code>)\n"
-
-        if len(items) > 12:
-            text += f"\n<i>...and {len(items) - 12} more titles on {platform_name}!</i>"
+        formatted = _group_and_format_dub_results(items[:15])
+        text = f"<b>:: HINDI DUBS ON {platform_name.upper()} ::</b>\n\n{formatted}"
 
         await target_msg.reply_html(text)
     except Exception as e:
@@ -169,12 +183,8 @@ async def multidubs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.reply_html("[!] No multi-platform dubbed anime found.")
             return
 
-        text = f"<b>:: MULTI-PLATFORM HINDI DUBBED ANIME ({len(items)}) ::</b>\n\n"
-        for item in items[:10]:
-            title = item.get("title", "Unknown")
-            dubs = item.get("hindi_dubs", [])
-            platforms = [d.get("platform") for d in dubs if d.get("platform")]
-            text += f"» <b>{title}</b>\n   • Available on: <b>{', '.join(set(platforms))}</b>\n"
+        formatted = _group_and_format_dub_results(items[:10])
+        text = f"<b>:: MULTI-PLATFORM HINDI DUBBED ANIME ::</b>\n\n{formatted}"
 
         await msg.reply_html(text)
     except Exception as e:
