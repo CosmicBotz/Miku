@@ -12,7 +12,7 @@ async def clean_commands_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
     msg = update.effective_message
 
     if not chat or chat.type not in ("group", "supergroup"):
-        await msg.reply_html("[!] This command can only be used in group chats.")
+        await msg.reply_html("[!] This command can only be used in group chats.", quote=False)
         return
 
     cfg = get_config()
@@ -27,7 +27,7 @@ async def clean_commands_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
             is_admin = False
 
     if not is_admin:
-        await msg.reply_html("[!] Only group administrators can configure clean commands mode.")
+        await msg.reply_html("[!] Only group administrators can configure clean commands mode.", quote=False)
         return
 
     settings = await crud.get_or_create_chat(chat.id, chat.title, cfg.defaults)
@@ -39,7 +39,8 @@ async def clean_commands_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await msg.reply_html(
             f"<b>:: CLEAN COMMANDS MODE ::</b>\n\n"
             f"• Current Status: <b>{status_str}</b>\n\n"
-            f"<i>Usage: <code>/cleancommands on|off</code> to toggle.</i>"
+            f"<i>Usage: <code>/cleancommands on|off</code> to toggle.</i>",
+            quote=False,
         )
         return
 
@@ -49,14 +50,15 @@ async def clean_commands_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif val in ("off", "no", "false", "disable", "0"):
         new_val = False
     else:
-        await msg.reply_html("<b>Usage:</b> <code>/cleancommands on|off</code>")
+        await msg.reply_html("<b>Usage:</b> <code>/cleancommands on|off</code>", quote=False)
         return
 
     await crud.update_chat(chat.id, clean_commands=new_val)
     status_str = "ENABLED" if new_val else "DISABLED"
     await msg.reply_html(
         f"<b>:: CLEAN COMMANDS MODE ::</b>\n\n"
-        f"• Clean commands mode is now <b>{status_str}</b> for <b>{chat.title}</b>."
+        f"• Clean commands mode is now <b>{status_str}</b> for <b>{chat.title}</b>.",
+        quote=False,
     )
 
 
