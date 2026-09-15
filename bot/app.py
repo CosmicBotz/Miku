@@ -3,6 +3,7 @@ import logging
 import traceback
 
 from telegram import Update
+from telegram.error import Conflict
 from telegram.ext import Application, ApplicationBuilder, ContextTypes
 
 from .config import get_config
@@ -15,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
+    if isinstance(context.error, Conflict):
+        logger.error(
+            "Conflict Error: Terminated by another getUpdates request. "
+            "Another bot instance is running with the same BOT_TOKEN. Please terminate other running instances."
+        )
+        return
+
     logger.error("Exception while handling an update", exc_info=context.error)
 
     tb_list = (
@@ -64,6 +72,11 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
 async def _post_init(application: Application) -> None:
     """Runs once, inside PTB's own event loop, before polling starts."""
     cfg = get_config()
+    try:
+        await application.bot.delete_webhook(drop_pending_updates=False)
+    except Exception as e:
+        logger.warning(f"Could not clear webhooks on post_init: {e}")
+
     await init_db(cfg.mongo_uri, cfg.mongo_db_name)
     await init_telethon(cfg.api_id, cfg.api_hash, cfg.bot_token)
     application.bot_data["webserver_runner"] = await start_webserver(cfg.port)
@@ -96,4 +109,7 @@ def build_application() -> Application:
 def run() -> None:
     application = build_application()
     logger.info("Starting polling...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=False,
+    )
