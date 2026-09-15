@@ -1,5 +1,6 @@
 """Upload replied media to telegra.ph and return a permanent link."""
 import io
+import json
 
 import aiohttp
 from PIL import Image
@@ -92,9 +93,26 @@ async def _upload_to_telegraph(file_bytes: bytes, filename: str, mime_type: str)
     form.add_field("file", file_bytes, filename=filename, content_type=mime_type)
     async with aiohttp.ClientSession() as session:
         async with session.post(TELEGRAPH_UPLOAD_URL, data=form) as resp:
-            data = await resp.json()
-    if isinstance(data, dict) and data.get("error"):
-        raise RuntimeError(data["error"])
+            status = resp.status
+            raw = await resp.text()
+
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        raise RuntimeError(f"telegra.ph returned a non-JSON response (HTTP {status}): {raw[:200]!r}")
+
+    # Expected success shape: [{"src": "/file/xxxx.jpg"}]. telegra.ph can also
+    # reply with {"error": "..."} , or - on things like rate limiting - a bare
+    # string inside the list, e.g. ["Too Many Requests"]. Validate the shape
+    # instead of indexing straight into it, so any of those surface as a
+    # readable message instead of "string indices must be integers".
+    if isinstance(data, dict):
+        raise RuntimeError(data.get("error") or f"Unexpected response (HTTP {status}): {raw[:200]!r}")
+
+    if not isinstance(data, list) or not data or not isinstance(data[0], dict) or "src" not in data[0]:
+        detail = data[0] if isinstance(data, list) and data else raw[:200]
+        raise RuntimeError(f"telegra.ph rejected the upload (HTTP {status}): {detail!r}")
+
     return "https://telegra.ph" + data[0]["src"]
 
 
