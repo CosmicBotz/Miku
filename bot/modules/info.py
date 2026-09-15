@@ -15,50 +15,87 @@ def _mention(user) -> str:
     return f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
 
 
+async def _get_profile_photos_count(bot, target_id: int) -> int:
+    """Robustly fetch profile photo count using Bot API and Telethon fallback."""
+    count = 0
+    try:
+        photos = await bot.get_user_profile_photos(user_id=target_id)
+        if photos:
+            if photos.total is not None and photos.total > 0:
+                count = photos.total
+            elif photos.photos and len(photos.photos) > 0:
+                count = len(photos.photos)
+    except Exception:
+        pass
+
+    if count > 0:
+        return count
+
+    try:
+        from ..utils.telethon_client import get_telethon_client
+        client = get_telethon_client()
+        if client and client.is_connected():
+            t_photos = await client.get_profile_photos(target_id)
+            if t_photos:
+                count = len(t_photos)
+    except Exception:
+        pass
+
+    return count
+
+
 async def info_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Display clean, structured profile information for a user."""
     msg = update.effective_message
     target = await get_target_user(update, context) or update.effective_user
 
-    try:
-        photos = await context.bot.get_user_profile_photos(target.id)
-        photo_count = photos.total if photos else 0
-    except Exception:
-        photo_count = 0
+    photo_count = await _get_profile_photos_count(context.bot, target.id)
+
+    full_name = f"{target.first_name} {target.last_name}" if target.last_name else target.first_name
+    account_type = "Bot Account" if target.is_bot else "User Account"
+    username_str = f"@{target.username}" if target.username else "None"
+    lang = target.language_code or "N/A"
+    is_premium = "Yes" if getattr(target, "is_premium", False) else "No"
 
     lines = [
-        f"<b>:: USER INFO — {_mention(target)} ::</b>",
-        f"» <b>ID:</b> <code>{target.id}</code>",
-        f"» <b>First Name:</b> {target.first_name}",
-        f"» <b>Last Name:</b> {target.last_name or 'N/A'}",
-        f"» <b>Username:</b> @{target.username}" if target.username else "» <b>Username:</b> None",
-        f"» <b>Is Bot:</b> {'Yes' if target.is_bot else 'No'}",
-        f"» <b>Profile Photos Count:</b> {photo_count}",
-        f"» <b>User Link:</b> <a href=\"tg://user?id={target.id}\">link</a>",
+        "<b>:: USER INFORMATION ::</b>\n",
+        "» <b>PROFILE</b>",
+        f"• <b>Full Name:</b> {full_name}",
+        f"• <b>User ID:</b> <code>{target.id}</code>",
+        f"• <b>Username:</b> {username_str}",
+        f"• <b>User Mention:</b> {_mention(target)}",
+        "",
+        "» <b>ACCOUNT STATS</b>",
+        f"• <b>Account Type:</b> {account_type}",
+        f"• <b>Profile Photos:</b> {photo_count} photo(s)",
+        f"• <b>Language Code:</b> <code>{lang}</code>",
+        f"• <b>Telegram Premium:</b> {is_premium}",
     ]
-    await msg.reply_html("\n".join(lines))
+    await msg.reply_html("\n".join(lines).strip())
 
 
 async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Generate a clean identification card with simplified section titles."""
     msg = update.effective_message
     chat = update.effective_chat
     user = update.effective_user
 
     lines = ["<b>:: IDENTIFICATION CARD ::</b>\n"]
 
-    # 1. COMMAND USER
+    # 1. SENDER (User who ran command)
     if user:
-        lines.append("» <b>USER WHO USED COMMAND</b>")
+        lines.append("» <b>SENDER</b>")
         lines.append(f"• <b>Name:</b> {_mention(user)}")
         lines.append(f"• <b>User ID:</b> <code>{user.id}</code>")
         if user.username:
             lines.append(f"• <b>Username:</b> @{user.username}")
         lines.append("")
 
-    # 2. CURRENT CHAT
+    # 2. CHAT DETAILS
     if chat:
         chat_title = chat.title or chat.first_name or "Private Chat"
         chat_type = chat.type.capitalize()
-        lines.append("» <b>CHAT WHERE USED</b>")
+        lines.append("» <b>CHAT</b>")
         lines.append(f"• <b>Title:</b> {chat_title}")
         lines.append(f"• <b>Chat ID:</b> <code>{chat.id}</code>")
         lines.append(f"• <b>Type:</b> {chat_type}")
@@ -66,12 +103,12 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"• <b>Chat Username:</b> @{chat.username}")
         linked_id = getattr(chat, "linked_chat_id", None)
         if linked_id:
-            lines.append(f"• <b>Linked Discussion Chat ID:</b> <code>{linked_id}</code>")
+            lines.append(f"• <b>Linked Chat ID:</b> <code>{linked_id}</code>")
         lines.append("")
 
-    # 3. SPECIFIED TARGET
+    # 3. SPECIFIED TARGET ARGUMENT
     if context.args:
-        lines.append("» <b>SPECIFIED TARGET ENTITY</b>")
+        lines.append("» <b>TARGET</b>")
         target = await get_target_user(update, context)
         if target:
             lines.append(f"• <b>Target User:</b> {_mention(target)}")
@@ -104,26 +141,26 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 4. REPLIED MESSAGE & TARGET USER / CHANNEL
     if msg.reply_to_message:
         reply = msg.reply_to_message
-        lines.append("» <b>REPLIED MESSAGE & TARGET USER</b>")
-        lines.append(f"• <b>Replied Message ID:</b> <code>{reply.message_id}</code>")
+        lines.append("» <b>REPLIED USER</b>")
+        lines.append(f"• <b>Message ID:</b> <code>{reply.message_id}</code>")
 
         if reply.from_user:
-            lines.append(f"• <b>Replied User:</b> {_mention(reply.from_user)}")
-            lines.append(f"• <b>Replied User ID:</b> <code>{reply.from_user.id}</code>")
+            lines.append(f"• <b>User:</b> {_mention(reply.from_user)}")
+            lines.append(f"• <b>User ID:</b> <code>{reply.from_user.id}</code>")
             if reply.from_user.username:
-                lines.append(f"• <b>Replied Username:</b> @{reply.from_user.username}")
+                lines.append(f"• <b>Username:</b> @{reply.from_user.username}")
 
         if getattr(reply, "sender_chat", None):
             s_chat = reply.sender_chat
-            lines.append(f"• <b>Sent On Behalf Of Channel:</b> {s_chat.title or 'Channel'}")
+            lines.append(f"• <b>Sender Channel:</b> {s_chat.title or 'Channel'}")
             lines.append(f"• <b>Sender Channel ID:</b> <code>{s_chat.id}</code>")
             if s_chat.username:
-                lines.append(f"• <b>Sender Channel Username:</b> @{s_chat.username}")
+                lines.append(f"• <b>Sender Username:</b> @{s_chat.username}")
 
         origin = getattr(reply, "forward_origin", None)
         if origin:
             lines.append("")
-            lines.append("» <b>FORWARDED ORIGIN / CHANNEL</b>")
+            lines.append("» <b>FORWARD ORIGIN</b>")
             if isinstance(origin, MessageOriginUser):
                 f_u = origin.sender_user
                 lines.append(f"• <b>Forwarded User:</b> {_mention(f_u)}")
@@ -144,7 +181,7 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f_u = getattr(reply, "forward_from", None)
             if f_u:
                 lines.append("")
-                lines.append("» <b>FORWARDED ORIGIN / USER</b>")
+                lines.append("» <b>FORWARD ORIGIN</b>")
                 lines.append(f"• <b>Forwarded User:</b> {_mention(f_u)}")
                 lines.append(f"• <b>Forwarded User ID:</b> <code>{f_u.id}</code>")
                 if f_u.username:
@@ -153,7 +190,7 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f_c = getattr(reply, "forward_from_chat", None)
             if f_c:
                 lines.append("")
-                lines.append("» <b>FORWARDED ORIGIN / CHANNEL</b>")
+                lines.append("» <b>FORWARD ORIGIN</b>")
                 lines.append(f"• <b>Forwarded Channel/Chat:</b> {f_c.title or 'Channel'}")
                 lines.append(f"• <b>Forwarded Channel/Chat ID:</b> <code>{f_c.id}</code>")
                 if f_c.username:
@@ -166,4 +203,3 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def register(application):
     application.add_handler(CommandHandler("info", info_cmd))
     application.add_handler(CommandHandler("id", id_cmd))
-
