@@ -1,3 +1,4 @@
+import html
 import re
 
 from telegram import Update
@@ -48,8 +49,9 @@ async def antispam_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 if mode == "warn":
                     count = await crud.add_warn(chat.id, user.id, reason="Blacklisted word", admin_id=context.bot.id)
+                    u_name = html.escape(user.first_name) if user and user.first_name else "User"
                     await message.reply_html(
-                        f"[!] User <a href=\"tg://user?id={user.id}\">{user.first_name}</a> used blacklisted word! ({count}/{settings.warn_limit} warnings)"
+                        f"[!] User <a href=\"tg://user?id={user.id}\">{u_name}</a> used blacklisted word! ({count}/{settings.warn_limit} warnings)"
                     )
                 elif mode == "mute":
                     await context.bot.restrict_chat_member(chat.id, user.id, permissions=MUTED_PERMISSIONS)

@@ -1,3 +1,4 @@
+import html
 import uuid
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
@@ -8,7 +9,8 @@ from ..utils.extraction import get_reason, get_target_user
 
 
 def _mention(user) -> str:
-    return f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+    name = html.escape(user.first_name) if user and user.first_name else "User"
+    return f'<a href="tg://user?id={user.id}">{name}</a>'
 
 
 async def newfed_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -256,8 +258,9 @@ async def check_fed_ban_on_join(update: Update, context: ContextTypes.DEFAULT_TY
     if await crud.is_fbanned(fed["_id"], user.id):
         try:
             await context.bot.ban_chat_member(chat.id, user.id)
+            fed_name = html.escape(str(fed['fed_name']))
             await update.effective_message.reply_html(
-                f"[FBAN] <a href=\"tg://user?id={user.id}\">{user.first_name}</a> is fbanned in <b>{fed['fed_name']}</b> and has been automatically banned."
+                f"[FBAN] {_mention(user)} is fbanned in <b>{fed_name}</b> and has been automatically banned."
             )
             return True
         except Exception:

@@ -1,3 +1,4 @@
+import html
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
@@ -101,8 +102,9 @@ async def check_antiraid_join(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             await context.bot.restrict_chat_member(chat.id, user.id, permissions=MUTED_PERMISSIONS)
 
+        u_name = html.escape(user.first_name) if user and user.first_name else "User"
         await update.effective_message.reply_html(
-            f"[ANTIRAID] Automatically {action}ed new user <a href=\"tg://user?id={user.id}\">{user.first_name}</a>."
+            f"[ANTIRAID] Automatically {action}ed new user <a href=\"tg://user?id={user.id}\">{u_name}</a>."
         )
         return True
     except Exception:

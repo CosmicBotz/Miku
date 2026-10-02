@@ -1,3 +1,4 @@
+import html
 import uuid
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
@@ -56,8 +57,10 @@ async def whisper_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [[InlineKeyboardButton("🤫 Show Secret Whisper", callback_data=f"wspr:{whisper_id}")]]
     )
 
+    t_name = html.escape(target_name)
+    u_name = html.escape(user.first_name) if user and user.first_name else "User"
     await msg.reply_html(
-        f"A secret whisper has been sent for <b>{target_name}</b> by <b>{user.first_name}</b>!",
+        f"A secret whisper has been sent for <b>{t_name}</b> by <b>{u_name}</b>!",
         reply_markup=keyboard,
     )
 

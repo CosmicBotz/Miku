@@ -1,3 +1,4 @@
+import html
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -12,15 +13,19 @@ from .federations import check_fed_ban_on_join
 
 
 def _placeholders(user, chat, count=None) -> dict:
-    mention = f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+    first_name = html.escape(user.first_name) if user and user.first_name else ""
+    last_name = html.escape(user.last_name) if user and user.last_name else ""
+    fullname = (first_name + ((" " + last_name) if last_name else "")).strip()
+    mention = f'<a href="tg://user?id={user.id}">{first_name or "User"}</a>'
+    chat_title = html.escape(chat.title) if chat and chat.title else "this chat"
     return {
-        "first": user.first_name or "",
-        "last": user.last_name or "",
-        "fullname": (user.first_name or "") + ((" " + user.last_name) if user.last_name else ""),
-        "username": f"@{user.username}" if user.username else (user.first_name or ""),
+        "first": first_name,
+        "last": last_name,
+        "fullname": fullname,
+        "username": f"@{user.username}" if user and user.username else (first_name or ""),
         "mention": mention,
         "id": user.id,
-        "chat_title": chat.title or "this chat",
+        "chat_title": chat_title,
         "count": count if count is not None else "",
     }
 
@@ -69,7 +74,8 @@ async def on_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             text = template.format(**_placeholders(member, chat, member_count))
         except Exception:
-            text = f"Welcome, {member.first_name}!"
+            m_name = html.escape(member.first_name) if member and member.first_name else "User"
+            text = f"Welcome, {m_name}!"
 
         if settings.clean_welcome and settings.last_welcome_msg_id:
             try:
@@ -105,7 +111,8 @@ async def on_left_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         text = template.format(**_placeholders(member, chat))
     except Exception:
-        text = f"{member.first_name} left the chat."
+        m_name = html.escape(member.first_name) if member and member.first_name else "User"
+        text = f"{m_name} left the chat."
 
     await context.bot.send_message(chat.id, text, parse_mode="HTML")
 

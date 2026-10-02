@@ -1,3 +1,4 @@
+import html
 import math
 import random
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -244,7 +245,8 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if chat.type == "private":
         start_pic = _get_start_pic()
-        caption_text = START_TEXT_PM.format(name=user.first_name)
+        user_name = html.escape(user.first_name) if user and user.first_name else "User"
+        caption_text = START_TEXT_PM.format(name=user_name)
         if start_pic:
             try:
                 await msg.reply_photo(
@@ -261,7 +263,8 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bot_username = context.bot.username or "AnimeModBot"
         pm_url = f"https://t.me/{bot_username}?start=help"
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("[ PM for Help ]", url=pm_url)]])
-        await msg.reply_html(START_TEXT_GROUP.format(chat_title=chat.title), reply_markup=keyboard)
+        chat_title = html.escape(chat.title) if chat and chat.title else "this chat"
+        await msg.reply_html(START_TEXT_GROUP.format(chat_title=chat_title), reply_markup=keyboard)
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):

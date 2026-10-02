@@ -1,3 +1,4 @@
+import html
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
@@ -27,10 +28,11 @@ async def purge_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             continue
 
     await context.bot.send_message(chat_id, f"[PURGE] Purged {deleted} messages.")
+    admin_name = html.escape(update.effective_user.first_name) if update.effective_user and update.effective_user.first_name else "Admin"
     await send_log(
         context.bot,
         chat_id,
-        f"<b>[PURGE LOG]</b>\n» <b>Count:</b> {deleted} messages\n» <b>Admin:</b> <a href=\"tg://user?id={update.effective_user.id}\">{update.effective_user.first_name}</a>",
+        f"<b>[PURGE LOG]</b>\n» <b>Count:</b> {deleted} messages\n» <b>Admin:</b> <a href=\"tg://user?id={update.effective_user.id}\">{admin_name}</a>",
     )
 
 
@@ -45,10 +47,11 @@ async def del_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await message.reply_to_message.delete()
         await message.delete()
+        admin_name = html.escape(update.effective_user.first_name) if update.effective_user and update.effective_user.first_name else "Admin"
         await send_log(
             context.bot,
             update.effective_chat.id,
-            f"<b>[DELETE LOG]</b>\n» Single message deleted\n» <b>Admin:</b> <a href=\"tg://user?id={update.effective_user.id}\">{update.effective_user.first_name}</a>",
+            f"<b>[DELETE LOG]</b>\n» Single message deleted\n» <b>Admin:</b> <a href=\"tg://user?id={update.effective_user.id}\">{admin_name}</a>",
         )
     except Exception as e:
         await message.reply_text(f"Couldn't delete: {e}")

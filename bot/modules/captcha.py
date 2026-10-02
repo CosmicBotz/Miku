@@ -1,3 +1,4 @@
+import html
 import random
 from telegram import ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
@@ -108,12 +109,14 @@ async def send_captcha_challenge(update: Update, context: ContextTypes.DEFAULT_T
             for opt in options
         ]
         keyboard = InlineKeyboardMarkup([buttons])
-        text = f"[CAPTCHA] Welcome <a href=\"tg://user?id={user.id}\">{user.first_name}</a>! Please solve this math captcha: <b>{a} + {b} = ?</b>"
+        u_name = html.escape(user.first_name) if user and user.first_name else "User"
+        text = f"[CAPTCHA] Welcome <a href=\"tg://user?id={user.id}\">{u_name}</a>! Please solve this math captcha: <b>{a} + {b} = ?</b>"
     else:
         keyboard = InlineKeyboardMarkup(
             [[InlineKeyboardButton("[ Confirm Human ]", callback_data=f"cpt:{user.id}:correct")]]
         )
-        text = f"[CAPTCHA] Welcome <a href=\"tg://user?id={user.id}\">{user.first_name}</a>! Click the button below to prove you are human."
+        u_name = html.escape(user.first_name) if user and user.first_name else "User"
+        text = f"[CAPTCHA] Welcome <a href=\"tg://user?id={user.id}\">{u_name}</a>! Click the button below to prove you are human."
 
     sent_msg = await update.effective_message.reply_html(text, reply_markup=keyboard)
 

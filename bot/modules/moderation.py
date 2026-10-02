@@ -1,3 +1,4 @@
+import html
 from datetime import datetime, timezone
 
 from telegram import ChatPermissions, Update
@@ -26,7 +27,8 @@ MUTED_PERMISSIONS = ChatPermissions(can_send_messages=False)
 
 
 def _mention(user) -> str:
-    return f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+    name = html.escape(user.first_name) if user and user.first_name else "User"
+    return f'<a href="tg://user?id={user.id}">{name}</a>'
 
 
 def _reason_offset(update) -> int:

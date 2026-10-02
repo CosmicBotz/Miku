@@ -1,3 +1,4 @@
+import html
 import re
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
@@ -35,10 +36,12 @@ async def report_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             admin_mentions.append(f'<a href="tg://user?id={admin.user.id}">\u200b</a>')
 
     hidden_tags = "".join(admin_mentions)
+    u_name = html.escape(user.first_name) if user and user.first_name else "User"
+    rep_name = html.escape(reported_user.first_name) if reported_user and reported_user.first_name else "User"
     text = (
         f"<b>[REPORT] Message Reported</b>\n"
-        f"» <b>Reported by:</b> <a href=\"tg://user?id={user.id}\">{user.first_name}</a>\n"
-        f"» <b>Reported user:</b> <a href=\"tg://user?id={reported_user.id}\">{reported_user.first_name}</a>\n"
+        f"» <b>Reported by:</b> <a href=\"tg://user?id={user.id}\">{u_name}</a>\n"
+        f"» <b>Reported user:</b> <a href=\"tg://user?id={reported_user.id}\">{rep_name}</a>\n"
         f"Admins have been notified. {hidden_tags}"
     )
     await msg.reply_html(text)
@@ -81,8 +84,9 @@ async def admin_mention_handler(update: Update, context: ContextTypes.DEFAULT_TY
     ]
     hidden_tags = "".join(admin_mentions)
 
+    u_name = html.escape(user.first_name) if user and user.first_name else "User"
     await msg.reply_html(
-        f"<b>[REPORT] Admin Summoned</b> by <a href=\"tg://user?id={user.id}\">{user.first_name}</a>. {hidden_tags}"
+        f"<b>[REPORT] Admin Summoned</b> by <a href=\"tg://user?id={user.id}\">{u_name}</a>. {hidden_tags}"
     )
 
 

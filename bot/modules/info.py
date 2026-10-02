@@ -1,3 +1,4 @@
+import html
 from telegram import (
     MessageOriginChannel,
     MessageOriginChat,
@@ -12,7 +13,8 @@ from ..utils.telethon_client import resolve_entity
 
 
 def _mention(user) -> str:
-    return f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+    name = html.escape(user.first_name) if user and user.first_name else "User"
+    return f'<a href="tg://user?id={user.id}">{name}</a>'
 
 
 async def _get_profile_photos_count(bot, target_id: int) -> int:
@@ -51,7 +53,8 @@ async def info_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     photo_count = await _get_profile_photos_count(context.bot, target.id)
 
-    full_name = f"{target.first_name} {target.last_name}" if target.last_name else target.first_name
+    raw_name = f"{target.first_name} {target.last_name}" if target.last_name else target.first_name
+    full_name = html.escape(raw_name) if raw_name else "User"
     account_type = "Bot Account" if target.is_bot else "User Account"
     username_str = f"@{target.username}" if target.username else "None"
     lang = target.language_code or "N/A"
@@ -93,7 +96,7 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 2. CHAT DETAILS
     if chat:
-        chat_title = chat.title or chat.first_name or "Private Chat"
+        chat_title = html.escape(chat.title or chat.first_name or "Private Chat")
         chat_type = chat.type.capitalize()
         lines.append("» <b>CHAT</b>")
         lines.append(f"• <b>Title:</b> {chat_title}")
@@ -119,7 +122,7 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             arg = context.args[0]
             try:
                 target_chat = await context.bot.get_chat(arg)
-                name = target_chat.title or target_chat.first_name or str(target_chat.id)
+                name = html.escape(target_chat.title or target_chat.first_name or str(target_chat.id))
                 lines.append(f"• <b>Target Name:</b> {name}")
                 lines.append(f"• <b>Target ID:</b> <code>{target_chat.id}</code>")
                 lines.append(f"• <b>Target Type:</b> {target_chat.type.capitalize()}")
@@ -128,7 +131,7 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 resolved = await resolve_entity(arg)
                 if resolved:
-                    lines.append(f"• <b>Target Name:</b> {resolved.display_name}")
+                    lines.append(f"• <b>Target Name:</b> {html.escape(resolved.display_name)}")
                     lines.append(f"• <b>Target ID:</b> <code>{resolved.id}</code>")
                     lines.append(f"• <b>Target Type:</b> {resolved.entity_type}")
                     if resolved.username:
@@ -152,7 +155,8 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if getattr(reply, "sender_chat", None):
             s_chat = reply.sender_chat
-            lines.append(f"• <b>Sender Channel:</b> {s_chat.title or 'Channel'}")
+            s_title = html.escape(s_chat.title or 'Channel')
+            lines.append(f"• <b>Sender Channel:</b> {s_title}")
             lines.append(f"• <b>Sender Channel ID:</b> <code>{s_chat.id}</code>")
             if s_chat.username:
                 lines.append(f"• <b>Sender Username:</b> @{s_chat.username}")
@@ -170,13 +174,13 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif isinstance(origin, (MessageOriginChat, MessageOriginChannel)):
                 f_chat = getattr(origin, "sender_chat", None) or getattr(origin, "chat", None)
                 if f_chat:
-                    f_name = f_chat.title or f_chat.first_name or str(f_chat.id)
+                    f_name = html.escape(f_chat.title or f_chat.first_name or str(f_chat.id))
                     lines.append(f"• <b>Forwarded Channel/Chat:</b> {f_name}")
                     lines.append(f"• <b>Forwarded Channel/Chat ID:</b> <code>{f_chat.id}</code>")
                     if f_chat.username:
                         lines.append(f"• <b>Forwarded Username:</b> @{f_chat.username}")
             elif isinstance(origin, MessageOriginHiddenUser):
-                lines.append(f"• <b>Forwarded User:</b> {origin.sender_user_name} <i>(Hidden Profile)</i>")
+                lines.append(f"• <b>Forwarded User:</b> {html.escape(origin.sender_user_name)} <i>(Hidden Profile)</i>")
         else:
             f_u = getattr(reply, "forward_from", None)
             if f_u:

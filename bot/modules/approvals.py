@@ -1,3 +1,4 @@
+import html
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
@@ -7,7 +8,8 @@ from ..utils.extraction import get_target_user
 
 
 def _mention(user) -> str:
-    return f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+    name = html.escape(user.first_name) if user and user.first_name else "User"
+    return f'<a href="tg://user?id={user.id}">{name}</a>'
 
 
 @group_only
