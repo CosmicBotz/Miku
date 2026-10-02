@@ -4,7 +4,7 @@ import traceback
 
 from telegram import Update
 from telegram.error import Conflict
-from telegram.ext import Application, ApplicationBuilder, ContextTypes
+from telegram.ext import Application, ApplicationBuilder, ContextTypes, Defaults
 
 from .config import get_config
 from .database.base import close_db, init_db
@@ -44,16 +44,34 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
         f"<pre>{escaped_tb}</pre>"
     )
 
-    if isinstance(update, Update) and update.effective_message:
-        try:
-            await update.effective_message.reply_html(error_text)
-        except Exception:
+    if isinstance(update, Update):
+        if update.effective_message:
             try:
-                clean_msg = (
-                    f"⚠️ An error occurred: {err_name}: {err_msg}\n\n"
-                    f"Recent Error Log:\n{tb_string[-1500:]}"
+                await update.effective_message.reply_html(error_text, allow_sending_without_reply=True)
+            except Exception:
+                try:
+                    clean_msg = (
+                        f"⚠️ An error occurred: {err_name}: {err_msg}\n\n"
+                        f"Recent Error Log:\n{tb_string[-1500:]}"
+                    )
+                    await update.effective_message.reply_text(clean_msg[:4000], allow_sending_without_reply=True)
+                except Exception:
+                    if update.effective_chat:
+                        try:
+                            await context.bot.send_message(
+                                chat_id=update.effective_chat.id,
+                                text=error_text[:4000],
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
+        elif update.effective_chat:
+            try:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=error_text[:4000],
+                    parse_mode="HTML",
                 )
-                await update.effective_message.reply_text(clean_msg[:4000])
             except Exception:
                 pass
 
@@ -97,10 +115,12 @@ def build_application() -> Application:
     application = (
         ApplicationBuilder()
         .token(cfg.bot_token)
+        .defaults(Defaults(allow_sending_without_reply=True))
         .post_init(_post_init)
         .post_shutdown(_post_shutdown)
         .build()
     )
+
     application.add_error_handler(on_error)
     load_all_modules(application)
     return application
